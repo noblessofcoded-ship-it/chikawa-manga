@@ -5,5 +5,6 @@
   "includeRetweets": false,
   "autoVolumeSize": 30,
   "maxFetchPerUpdate": 300,
+  "maxBackfill": 3200,
   "port": 5173
 }

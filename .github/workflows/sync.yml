@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: '0 21 * * *'   # 毎日 06:00 JST
   workflow_dispatch:
+    inputs:
+      full:
+        description: '過去の話をまとめて取り込む（初回はこれ）'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -31,7 +36,11 @@ jobs:
             echo "X_BEARER_TOKEN が未設定のため、取り込みは行いません。"
             exit 0
           fi
-          npm run sync
+          if [ "${{ inputs.full }}" = "true" ]; then
+            npm run sync -- --full
+          else
+            npm run sync
+          fi
 
       - name: 変更があればコミットする
         run: |

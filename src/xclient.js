@@ -83,8 +83,10 @@ export async function fetchTimeline({ username, sinceId, max = 300, token, optio
   const episodes = [];
   let paginationToken;
   let pages = 0;
+  // 1ページ最大100件。取り切るのに必要なページ数に少し余裕を持たせる。
+  const maxPages = Math.ceil(max / 100) + 5;
 
-  while (episodes.length < max && pages < 20) {
+  while (episodes.length < max && pages < maxPages) {
     const json = await apiGet(
       `/users/${user.id}/tweets`,
       {

@@ -32,7 +32,7 @@ export async function runSync({ full = false } = {}) {
       const { episodes } = await fetchTimeline({
         username: account,
         sinceId,
-        max: config.maxFetchPerUpdate,
+        max: full ? config.maxBackfill : config.maxFetchPerUpdate,
         token: bearerToken,
         options: { includeReplies: config.includeReplies, includeRetweets: config.includeRetweets },
       });

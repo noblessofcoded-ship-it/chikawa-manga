@@ -17,8 +17,10 @@ const DEFAULTS = {
   includeRetweets: false,
   // 単行本1巻あたりの話数（volumes に該当がないぶんの自動割り当てに使う）
   autoVolumeSize: 30,
-  // 1回の更新で遡って取得する最大件数
+  // 1回の更新で遡って取得する最大件数（差分更新のとき）
   maxFetchPerUpdate: 300,
+  // 全件取り直しのときの上限。X API 側が直近3200件しか返さないため、それに合わせる。
+  maxBackfill: 3200,
   port: 5173,
 };
 
