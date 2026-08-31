@@ -5,7 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ちいかわ書架</title>
 <link rel="stylesheet" href="./styles.css">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E">
+
+<!-- ホーム画面に置いてアプリのように使うための設定（iPhone / Android 共通） -->
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ちいかわ書架">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4efe6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171412" media="(prefers-color-scheme: dark)">
 </head>
 <body>
 
@@ -65,6 +75,7 @@
     <p class="hint">ポストのURLを貼り付けてください（改行区切りで複数可）。X APIのトークンが無くても使えます。</p>
     <textarea id="manual-input" rows="4" placeholder="https://x.com/.../status/1234567890"></textarea>
     <button id="btn-manual" class="dialog__submit">この分を書架に加える</button>
+    <button id="btn-export" class="dialog__submit dialog__submit--ghost" hidden>この端末の追加分を書き出す</button>
   </div>
 </dialog>
 
@@ -72,5 +83,13 @@
 
 <script src="https://platform.twitter.com/widgets.js" charset="utf-8" async></script>
 <script src="./app.js" type="module"></script>
+<script>
+  // オフラインでも開けるようにする。file:// で開いたときは登録しない。
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => { /* 無くても読める */ });
+    });
+  }
+</script>
 </body>
 </html>

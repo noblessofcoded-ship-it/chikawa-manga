@@ -8,7 +8,7 @@
  *   4. どれにも当てはまらないぶんは、時系列で autoVolumeSize 話ずつ自動的に巻へ束ねる
  */
 
-import { byPublishedAsc } from './store.js';
+import { byPublishedAsc } from './sort.js';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
