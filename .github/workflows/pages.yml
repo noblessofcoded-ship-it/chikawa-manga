@@ -1,0 +1,52 @@
+# 書架を GitHub Pages に公開する。
+# 公開されるのは索引（data/*.json）とリーダーのファイルだけで、漫画の画像は含まれない。
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'data/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 公開するファイルを組み立てる
+        run: |
+          mkdir -p _site
+          cp -r public/. _site/
+          # サーバー版の /data/ と同じURLで読めるようにする
+          mkdir -p _site/data
+          cp data/episodes.json data/chapters.json _site/data/
+          # 静的配信では見えないので、目印として置いておく
+          touch _site/.nojekyll
+          ls -R _site | head -40
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

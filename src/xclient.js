@@ -6,9 +6,12 @@
  * 実際の漫画画像は閲覧時に X の公式埋め込みから配信される。
  */
 
+import { idToDate, parsePostRef, labelFrom } from '../public/lib/postref.js';
+
+export { idToDate, parsePostRef };
+
 const API = 'https://api.x.com/2';
 const OEMBED = 'https://publish.twitter.com/oembed';
-const TWITTER_EPOCH = 1288834974657n;
 
 export class XError extends Error {
   constructor(message, { status = 0, hint = '' } = {}) {
@@ -17,36 +20,6 @@ export class XError extends Error {
     this.status = status;
     this.hint = hint;
   }
-}
-
-/** Snowflake ID から公開時刻を復元する（API が使えない取り込み経路用） */
-export function idToDate(id) {
-  if (!/^\d+$/.test(String(id))) return null;
-  const ms = (BigInt(id) >> 22n) + TWITTER_EPOCH;
-  const d = new Date(Number(ms));
-  return Number.isFinite(d.getTime()) && d.getUTCFullYear() > 2006 ? d.toISOString() : null;
-}
-
-/** ポストURL / ID / @user/status/... のいずれからでも {id, author} を取り出す */
-export function parsePostRef(input) {
-  const raw = String(input || '').trim();
-  if (!raw) return null;
-  if (/^\d{8,25}$/.test(raw)) return { id: raw, author: null };
-  const m = raw.match(/(?:twitter\.com|x\.com)\/([A-Za-z0-9_]{1,15})\/status(?:es)?\/(\d{8,25})/i);
-  if (m) return { id: m[2], author: m[1] };
-  const m2 = raw.match(/^@?([A-Za-z0-9_]{1,15})\/(\d{8,25})$/);
-  if (m2) return { id: m2[2], author: m2[1] };
-  return null;
-}
-
-function labelFrom(text) {
-  const firstLine = String(text || '')
-    .replace(/https?:\/\/\S+/g, '')       // 末尾の自動付与URLを落とす
-    .split('\n')
-    .map((s) => s.trim())
-    .find((s) => s.length > 0);
-  if (!firstLine) return '';
-  return firstLine.length > 40 ? `${firstLine.slice(0, 39)}…` : firstLine;
 }
 
 async function apiGet(path, params, token) {

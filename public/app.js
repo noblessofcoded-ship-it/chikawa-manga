@@ -6,6 +6,9 @@
  * このアプリが持っているのは「どのポストが何巻の何話か」という索引だけ。
  */
 
+import { buildBook } from './lib/chapters.js';
+import { parsePostRef, idToDate } from './lib/postref.js';
+
 const $ = (sel) => document.querySelector(sel);
 
 const el = {
@@ -29,11 +32,13 @@ const el = {
   updateBody: $('#update-body'),
   manualInput: $('#manual-input'),
   btnManual: $('#btn-manual'),
+  btnExport: $('#btn-export'),
   toast: $('#toast'),
 };
 
 const STORE_KEY = 'chikawa-book/progress';
 const MARK_KEY = 'chikawa-book/bookmarks';
+const LOCAL_KEY = 'chikawa-book/local-episodes';
 
 const state = {
   library: null,
@@ -57,6 +62,86 @@ function readJSON(key, fallback) {
 }
 function writeJSON(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* 保存できなくても読書は続けられる */ }
+}
+
+/* --------------------------------------------------- 書架の読み込み経路 */
+
+/**
+ * 動かし方が2通りある:
+ *   server — npm start でサーバーごと動かす。取り込みはサーバー側が行う。
+ *   static — GitHub Pages などに置いた静的ファイルだけで動かす（iPhone単体向け）。
+ *            リポジトリの data/ を読み、この端末で足した分は localStorage に持つ。
+ */
+let mode = 'server';
+
+async function fetchJSON(path) {
+  const res = await fetch(path, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`${path}: ${res.status}`);
+  return res.json();
+}
+
+const localEpisodes = () => readJSON(LOCAL_KEY, []);
+const saveLocalEpisodes = (list) => writeJSON(LOCAL_KEY, list);
+
+/** リポジトリのdata/と、この端末で足した分を合わせて章立てする */
+async function buildStaticLibrary() {
+  const [file, chapters] = await Promise.all([
+    fetchJSON('./data/episodes.json'),
+    fetchJSON('./data/chapters.json').catch(() => ({ volumes: [] })),
+  ]);
+  const shared = Array.isArray(file.episodes) ? file.episodes : [];
+  const known = new Set(shared.map((e) => String(e.id)));
+  const mine = localEpisodes().filter((e) => !known.has(String(e.id)));
+
+  return {
+    ...buildBook([...shared, ...mine], chapters),
+    updatedAt: file.updatedAt || null,
+    lastSync: file.lastSync || null,
+    accounts: file.accounts || [],
+    hasToken: false,
+    localCount: mine.length,
+  };
+}
+
+/** サーバーが居ればそちら、居なければ静的モードへ落とす */
+async function loadLibraryData() {
+  try {
+    const data = await fetchJSON('./api/library');
+    mode = 'server';
+    return data;
+  } catch {
+    mode = 'static';
+    return buildStaticLibrary();
+  }
+}
+
+/** 静的モードでの手動取り込み。ネットワークに触らず、ポストIDから日時を復元する。 */
+function importLocally(text) {
+  const refs = String(text).split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+  const list = localEpisodes();
+  const seen = new Set(list.map((e) => String(e.id)));
+  const invalid = [];
+  let added = 0;
+
+  for (const raw of refs) {
+    const ref = parsePostRef(raw);
+    if (!ref) { invalid.push(raw); continue; }
+    if (seen.has(ref.id)) continue;
+    const author = ref.author || state.library?.accounts?.[0] || 'i';
+    list.push({
+      id: ref.id,
+      url: `https://x.com/${author}/status/${ref.id}`,
+      author,
+      publishedAt: idToDate(ref.id),
+      label: '',
+      imageCount: null,
+      addedAt: new Date().toISOString(),
+    });
+    seen.add(ref.id);
+    added += 1;
+  }
+  saveLocalEpisodes(list);
+  return { added, invalid, total: list.length };
 }
 
 /* ------------------------------------------------------------ ページ組み */
@@ -143,12 +228,18 @@ function renderEmpty(page, root) {
   const plate = node('div', 'plate');
   plate.append(node('p', 'plate__kicker', 'はじめに'), node('h2', 'plate__title', '書架はまだ空です'));
   const note = node('div', 'plate__note');
-  note.innerHTML = `
-    右上の<strong>「更新」</strong>を押すと、設定したアカウントの新着を取りに行きます。<br><br>
-    X API のトークン（<code>X_BEARER_TOKEN</code>）を入れておくと自動で、
-    入っていない場合も更新パネルからポストのURLを貼り付けて手で足せます。<br><br>
-    取り込むのは「どのポストが何話か」という索引だけで、
-    画像は読むときに X の公式埋め込みから表示されます。`;
+  note.innerHTML = mode === 'static'
+    ? `右上の<strong>「更新」</strong>で配信元の索引を読み直します。<br><br>
+       この端末だけで話を足すには、更新パネルの<strong>「手動で足す」</strong>に
+       ポストのURLを貼り付けてください。X アプリの共有からURLをコピーして、
+       ここに貼るだけです。足した分はこの端末に保存されます。<br><br>
+       取り込むのは「どのポストが何話か」という索引だけで、
+       画像は読むときに X の公式埋め込みから表示されます。`
+    : `右上の<strong>「更新」</strong>を押すと、設定したアカウントの新着を取りに行きます。<br><br>
+       X API のトークン（<code>X_BEARER_TOKEN</code>）を入れておくと自動で、
+       入っていない場合も更新パネルからポストのURLを貼り付けて手で足せます。<br><br>
+       取り込むのは「どのポストが何話か」という索引だけで、
+       画像は読むときに X の公式埋め込みから表示されます。`;
   plate.append(note);
   root.append(plate);
 }
@@ -464,19 +555,35 @@ async function runUpdate() {
   el.btnUpdate.querySelector('.btn-label').textContent = '取得中';
 
   try {
-    const res = await fetch('/api/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '更新に失敗しました');
+    let report;
+    if (mode === 'static') {
+      // 配信元の data/ を読み直す（GitHub Actions などで更新された分が入ってくる）
+      const before = state.library?.totalEpisodes || 0;
+      const library = await buildStaticLibrary();
+      applyLibrary(library, { keepPlace: true });
+      report = {
+        added: Math.max(0, library.totalEpisodes - before),
+        refreshed: 0,
+        skipped: 0,
+        total: library.totalEpisodes,
+        errors: [],
+      };
+    } else {
+      const res = await fetch('./api/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '更新に失敗しました');
+      applyLibrary(data, { keepPlace: true });
+      report = data.report;
+    }
 
-    applyLibrary(data, { keepPlace: true });
-    showReport(data.report);
-    if (data.report.added > 0) {
-      toast(`${data.report.added}話ぶん増えました`);
-    } else if (data.report.errors?.length) {
+    showReport(report);
+    if (report.added > 0) {
+      toast(`${report.added}話ぶん増えました`);
+    } else if (report.errors?.length) {
       el.dialog.showModal();
     } else {
       toast('新しい話はありませんでした');
@@ -498,21 +605,48 @@ async function runManualImport() {
   if (!text) return toast('URLを貼り付けてください');
   el.btnManual.disabled = true;
   try {
-    const res = await fetch('/api/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '取り込みに失敗しました');
-    applyLibrary(data, { keepPlace: true });
+    let report;
+    if (mode === 'static') {
+      report = importLocally(text);
+      applyLibrary(await buildStaticLibrary(), { keepPlace: true });
+    } else {
+      const res = await fetch('./api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '取り込みに失敗しました');
+      applyLibrary(data, { keepPlace: true });
+      report = data.report;
+    }
     el.manualInput.value = '';
-    const invalid = data.report.invalid?.length ? `（${data.report.invalid.length}件は読み取れませんでした）` : '';
-    toast(`${data.report.added}話を書架に加えました${invalid}`);
+    const invalid = report.invalid?.length ? `（${report.invalid.length}件は読み取れませんでした）` : '';
+    toast(`${report.added}話を書架に加えました${invalid}`);
   } catch (err) {
     toast(err.message, 5000);
   } finally {
     el.btnManual.disabled = false;
+  }
+}
+
+/**
+ * この端末で足した分を JSON で書き出す。
+ * リポジトリの data/episodes.json へ移して共有したいときや、
+ * 端末を替えるときの控えとして使う。
+ */
+async function exportLocal() {
+  const list = localEpisodes();
+  if (!list.length) return toast('この端末で足した話はまだありません');
+  const text = JSON.stringify(list, null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`${list.length}件をコピーしました`);
+  } catch {
+    // クリップボードが使えない環境では、選んでコピーできるように出す
+    el.manualInput.value = text;
+    el.manualInput.select();
+    toast('上の欄に出しました。選択してコピーしてください', 5000);
   }
 }
 
@@ -555,6 +689,7 @@ function bindEvents() {
 
   el.btnUpdate.addEventListener('click', runUpdate);
   el.btnManual.addEventListener('click', runManualImport);
+  el.btnExport.addEventListener('click', exportLocal);
 
   el.btnMark.addEventListener('click', () => {
     const id = currentEpisodeId();
@@ -611,10 +746,9 @@ function bindEvents() {
 async function main() {
   bindEvents();
   try {
-    const res = await fetch('/api/library');
-    const library = await res.json();
-    if (!res.ok) throw new Error(library.error || '書架を読み込めませんでした');
+    const library = await loadLibraryData();
     applyLibrary(library);
+    el.btnExport.hidden = mode !== 'static';
     restorePlace();
     if (!library.totalEpisodes) el.barSub.textContent = '「更新」から取り込みを始めてください';
   } catch (err) {

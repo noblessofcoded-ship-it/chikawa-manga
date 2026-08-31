@@ -1,9 +1,10 @@
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
-import { config, bearerToken, PUBLIC_DIR } from './src/config.js';
+import { config, bearerToken, PUBLIC_DIR, DATA_DIR } from './src/config.js';
 import { loadLibrary, saveLibrary, loadChapters } from './src/store.js';
-import { buildBook } from './src/chapters.js';
+import { buildBook } from './public/lib/chapters.js';
 import { runSync, runImport } from './src/sync.js';
 
 const MIME = {
@@ -14,6 +15,7 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
 function json(res, status, body) {
@@ -46,9 +48,13 @@ function currentBook() {
 }
 
 async function serveStatic(req, res, pathname) {
-  const rel = normalize(pathname === '/' ? '/index.html' : pathname).replace(/^(\.\.[/\\])+/, '');
-  const file = join(PUBLIC_DIR, rel);
-  if (!file.startsWith(PUBLIC_DIR + sep) && file !== join(PUBLIC_DIR, 'index.html')) {
+  // 静的ホスティングに載せたときと同じURL構成にするため、data/ も配信する
+  const fromData = pathname.startsWith('/data/');
+  const root = fromData ? DATA_DIR : PUBLIC_DIR;
+  const requested = fromData ? pathname.slice('/data'.length) : pathname === '/' ? '/index.html' : pathname;
+  const rel = normalize(requested).replace(/^(\.\.[/\\])+/, '');
+  const file = join(root, rel);
+  if (!file.startsWith(root + sep)) {
     return json(res, 403, { error: 'forbidden' });
   }
   try {
@@ -128,8 +134,20 @@ const server = createServer(async (req, res) => {
   }
 });
 
+/** 同じWi-Fi上のスマホから開くためのアドレス */
+function lanAddresses() {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((n) => n && n.family === 'IPv4' && !n.internal)
+    .map((n) => n.address);
+}
+
 server.listen(config.port, () => {
-  console.log(`\n  ちいかわ書架  →  http://localhost:${config.port}\n`);
-  console.log(`  取り込み対象 : ${config.accounts.map((a) => '@' + a).join(', ') || '(未設定)'}`);
+  console.log(`\n  ちいかわ書架\n`);
+  console.log(`    このPCから    http://localhost:${config.port}`);
+  for (const addr of lanAddresses()) {
+    console.log(`    スマホから    http://${addr}:${config.port}   (同じWi-Fiに繋いでください)`);
+  }
+  console.log(`\n  取り込み対象 : ${config.accounts.map((a) => '@' + a).join(', ') || '(未設定)'}`);
   console.log(`  X API トークン: ${bearerToken ? '設定済み' : '未設定（手動取り込みは使えます）'}\n`);
 });

@@ -93,9 +93,13 @@ body {
   gap: 6px;
   white-space: nowrap;
 }
-.bar__btn:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+@media (hover: hover) {
+  .bar__btn:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+}
 .bar__btn--accent { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.bar__btn--accent:hover { filter: brightness(1.06); background: var(--accent); }
+@media (hover: hover) {
+  .bar__btn--accent:hover { filter: brightness(1.06); background: var(--accent); }
+}
 .bar__btn[disabled] { opacity: .55; cursor: progress; }
 
 .spinner {
@@ -237,7 +241,9 @@ body {
   padding-top: 8px;
 }
 .ep__foot a { color: var(--ink-soft); text-decoration: none; }
-.ep__foot a:hover { color: var(--accent); text-decoration: underline; }
+@media (hover: hover) {
+  .ep__foot a:hover { color: var(--accent); text-decoration: underline; }
+}
 
 /* 表紙・中扉・目次ページ */
 .plate {
@@ -283,9 +289,12 @@ body {
   opacity: .35;
   transition: opacity .15s;
 }
-.nav:hover { opacity: 1; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+@media (hover: hover) {
+  .nav:hover { opacity: 1; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+}
 .nav--right { right: 0; }
 .nav--left { left: 0; }
+.nav:active { opacity: .8; }
 .nav[disabled] { opacity: .08; cursor: default; background: none; }
 
 /* ---------- 下のバー ---------- */
@@ -368,7 +377,9 @@ body {
   text-align: right;
   cursor: pointer;
 }
-.toc__ep:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+@media (hover: hover) {
+  .toc__ep:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+}
 .toc__ep.is-current { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
 .toc__ep-no { color: var(--ink-soft); font-size: 11px; min-width: 3.2em; font-variant-numeric: tabular-nums; }
 .toc__ep-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -410,6 +421,12 @@ body {
   background: var(--accent); color: var(--accent-ink);
   font: inherit; font-size: 13px; cursor: pointer;
 }
+.dialog__submit--ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+}
+
 .report { margin: 0; padding: 0; list-style: none; }
 .report li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px dotted var(--rule); }
 .report .err { color: #c0392b; }

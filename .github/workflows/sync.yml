@@ -1,0 +1,46 @@
+# 新着を自動で取り込んで data/episodes.json を更新する。
+#
+# X API のトークンをリポジトリの Secrets に X_BEARER_TOKEN として登録すると動く。
+# 登録が無ければ何もせず正常終了する（Freeプランではタイムラインを読めないため）。
+# 更新が入ると Pages ワークフローが走り、スマホ側は「更新」を押すだけで反映される。
+name: Sync
+
+on:
+  schedule:
+    - cron: '0 21 * * *'   # 毎日 06:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 新着を取り込む
+        env:
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+        run: |
+          if [ -z "$X_BEARER_TOKEN" ]; then
+            echo "X_BEARER_TOKEN が未設定のため、取り込みは行いません。"
+            exit 0
+          fi
+          npm run sync
+
+      - name: 変更があればコミットする
+        run: |
+          if git diff --quiet -- data/episodes.json; then
+            echo "新しい話はありませんでした。"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/episodes.json
+          git commit -m "索引を更新"
+          git push

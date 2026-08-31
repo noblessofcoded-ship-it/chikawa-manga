@@ -1,6 +1,9 @@
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { DATA_DIR } from './config.js';
+import { byPublishedAsc } from '../public/lib/sort.js';
+
+export { byPublishedAsc };
 
 const EPISODES = join(DATA_DIR, 'episodes.json');
 const CHAPTERS = join(DATA_DIR, 'chapters.json');
@@ -42,13 +45,6 @@ export function loadChapters() {
 export function saveChapters(chapters) {
   writeJson(CHAPTERS, chapters);
   return chapters;
-}
-
-export function byPublishedAsc(a, b) {
-  const d = new Date(a.publishedAt) - new Date(b.publishedAt);
-  if (d !== 0) return d;
-  // 同時刻の連投は ID 昇順（Snowflake ID は時系列順）
-  return String(a.id).localeCompare(String(b.id));
 }
 
 /**
