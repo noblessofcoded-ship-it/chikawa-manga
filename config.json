@@ -1,0 +1,9 @@
+{
+  "accounts": ["ngnchiikawa"],
+  "minImages": 1,
+  "includeReplies": false,
+  "includeRetweets": false,
+  "autoVolumeSize": 30,
+  "maxFetchPerUpdate": 300,
+  "port": 5173
+}
