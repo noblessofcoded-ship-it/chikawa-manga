@@ -48,7 +48,7 @@ async function apiGet(path, params, token) {
   if (res.status === 403) {
     throw new XError('X API に権限がありません (403)。', {
       status: 403,
-      hint: 'Free プランではタイムライン取得ができません。Basic 以上のプラン、または手動取り込みを使ってください。',
+      hint: 'X API の読み取りは従量課金です。課金を有効にするか、手動取り込みを使ってください。',
     });
   }
   if (res.status === 429) {
