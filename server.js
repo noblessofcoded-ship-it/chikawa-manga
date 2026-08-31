@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { config, bearerToken, PUBLIC_DIR } from './src/config.js';
@@ -128,8 +129,20 @@ const server = createServer(async (req, res) => {
   }
 });
 
+/** 同じWi-Fi上のスマホから開くためのアドレス */
+function lanAddresses() {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((n) => n && n.family === 'IPv4' && !n.internal)
+    .map((n) => n.address);
+}
+
 server.listen(config.port, () => {
-  console.log(`\n  ちいかわ書架  →  http://localhost:${config.port}\n`);
-  console.log(`  取り込み対象 : ${config.accounts.map((a) => '@' + a).join(', ') || '(未設定)'}`);
+  console.log(`\n  ちいかわ書架\n`);
+  console.log(`    このPCから    http://localhost:${config.port}`);
+  for (const addr of lanAddresses()) {
+    console.log(`    スマホから    http://${addr}:${config.port}   (同じWi-Fiに繋いでください)`);
+  }
+  console.log(`\n  取り込み対象 : ${config.accounts.map((a) => '@' + a).join(', ') || '(未設定)'}`);
   console.log(`  X API トークン: ${bearerToken ? '設定済み' : '未設定（手動取り込みは使えます）'}\n`);
 });
