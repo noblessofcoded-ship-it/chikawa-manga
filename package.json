@@ -1,0 +1,13 @@
+{
+  "name": "chikawa-manga",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ナガノ先生のちいかわを単行本のように読むための、Xポスト索引ビューア",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "sync": "node scripts/sync.mjs",
+    "import": "node scripts/import.mjs"
+  }
+}
